@@ -93,11 +93,19 @@ public class UploaderToFile implements Uploader {
 		LOG.info("deleting: " + path);
 
 		File newPath = new File(basePath + path);
-		if (newPath.exists()) {
+		if (!newPath.exists()) {
+			return;
+		}
+		if (newPath.isDirectory()) {
 			try {
-				FileUtils.deleteDirectory(newPath.getParentFile());
+				FileUtils.deleteDirectory(newPath);
 			} catch (IOException e) {
-				LOG.error("unable to delete directory: " + newPath.getParentFile().getAbsolutePath(), e);
+				LOG.error("unable to delete directory: " + newPath.getAbsolutePath(), e);
+			}
+
+		} else if (newPath.isFile()) {
+			if (!newPath.delete()) {
+				LOG.error("unable to delete file: " + newPath.getAbsolutePath());
 			}
 		}
 	}
