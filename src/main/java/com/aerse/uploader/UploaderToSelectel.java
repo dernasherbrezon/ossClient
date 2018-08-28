@@ -1,6 +1,7 @@
 package com.aerse.uploader;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
@@ -65,18 +66,14 @@ public class UploaderToSelectel implements Uploader {
 				HttpDelete del = new HttpDelete(baseUrl + "/" + containerName + path);
 				del.addHeader("X-Auth-Token", getAuthToken());
 				result = client.execute(del);
-				if (LOG.isDebugEnabled() && result != null) {
+				if (LOG.isDebugEnabled()) {
 					LOG.debug("response: " + EntityUtils.toString(result.getEntity()));
 				}
-				if (result != null && result.getStatusLine().getStatusCode() == HttpStatus.SC_NO_CONTENT) {
+				if (result.getStatusLine().getStatusCode() == HttpStatus.SC_NO_CONTENT) {
 					return;
 				}
-				if (result != null && result.getStatusLine().getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-					throw new UploadException(UploadException.NOT_FOUND, INTERNAL_SERVER_ERROR);
-				}
-			} catch (UploadException e1) {
-				throw e1;
-			} catch (Exception e) {
+				throw new UploadException(result.getStatusLine().getStatusCode(), INTERNAL_SERVER_ERROR);
+			} catch (IOException e) {
 				if (retryCount < retries) {
 					retryCount++;
 					LOG.info("unable to delete: " + e.getMessage() + " retry..." + retryCount);
@@ -111,15 +108,14 @@ public class UploaderToSelectel implements Uploader {
 				if (LOG.isDebugEnabled()) {
 					LOG.debug("response: " + EntityUtils.toString(result.getEntity()));
 				}
-				if (result != null && result.getStatusLine().getStatusCode() != HttpStatus.SC_CREATED) {
-					LOG.info("invalid response: " + result.getStatusLine());
-				} else {
+				if (result.getStatusLine().getStatusCode() == HttpStatus.SC_CREATED) {
 					if (retryCount > 0) {
 						LOG.info("submitted: " + path);
 					}
+					return;
 				}
-				return;
-			} catch (Exception e) {
+				throw new UploadException(result.getStatusLine().getStatusCode(), "invalid response: " + result.getStatusLine());
+			} catch (IOException e) {
 				if (retryCount < 3) {
 					retryCount++;
 					LOG.info("unable to submit: " + path + " retry..." + retryCount);
@@ -205,7 +201,7 @@ public class UploaderToSelectel implements Uploader {
 				f.onData(result.getEntity().getContent());
 			}
 		} catch (Exception e) {
-			LOG.error("unable to upload", e);
+			LOG.error("unable to download", e);
 		} finally {
 			if (result != null) {
 				EntityUtils.consumeQuietly(result.getEntity());
@@ -227,14 +223,14 @@ public class UploaderToSelectel implements Uploader {
 				response = client.execute(get);
 				if (response.getStatusLine().getStatusCode() != HttpStatus.SC_NO_CONTENT) {
 					LOG.info("unable to auth: " + EntityUtils.toString(response.getEntity()));
-					throw new RuntimeException("Внутренняя ошибка. Попробуйте позднее");
+					throw new RuntimeException(INTERNAL_SERVER_ERROR);
 				}
 				authToken = response.getFirstHeader("X-Auth-Token").getValue();
 				baseUrl = response.getFirstHeader("X-Storage-Url").getValue();
 				// convert seconds to millis
 				validUntil = (start + Long.valueOf(response.getFirstHeader("X-Expire-Auth-Token").getValue()) * 1000) - timeout;
 			} catch (Exception e) {
-				throw new RuntimeException("Внутренняя ошибка. Попробуйте позднее", e);
+				throw new RuntimeException(INTERNAL_SERVER_ERROR, e);
 			} finally {
 				if (response != null) {
 					EntityUtils.consumeQuietly(response.getEntity());
