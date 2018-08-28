@@ -229,7 +229,7 @@ public class UploaderToSelectel implements Uploader {
 				baseUrl = response.getFirstHeader("X-Storage-Url").getValue();
 				// convert seconds to millis
 				validUntil = (start + Long.valueOf(response.getFirstHeader("X-Expire-Auth-Token").getValue()) * 1000) - timeout;
-			} catch (Exception e) {
+			} catch (IOException e) {
 				throw new RuntimeException(INTERNAL_SERVER_ERROR, e);
 			} finally {
 				if (response != null) {
