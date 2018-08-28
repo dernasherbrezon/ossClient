@@ -47,9 +47,9 @@ public class UploaderToSelectel implements Uploader {
 	private String authToken;
 	private String baseUrl;
 	private long validUntil;
-	
+
 	private HttpClient client;
-	
+
 	@PostConstruct
 	public void start() {
 		client = createClient();
@@ -58,13 +58,12 @@ public class UploaderToSelectel implements Uploader {
 	@Override
 	public void delete(String path) throws UploadException {
 		LOG.info("deleting: " + path);
-		String authToken2 = getAuthToken();
 		int retryCount = 0;
 		while (true) {
 			HttpResponse result = null;
 			try {
 				HttpDelete del = new HttpDelete(baseUrl + "/" + containerName + path);
-				del.addHeader("X-Auth-Token", authToken2);
+				del.addHeader("X-Auth-Token", getAuthToken());
 				result = client.execute(del);
 				if (LOG.isDebugEnabled() && result != null) {
 					LOG.debug("response: " + EntityUtils.toString(result.getEntity()));
@@ -80,6 +79,7 @@ public class UploaderToSelectel implements Uploader {
 			} catch (Exception e) {
 				if (retryCount < retries) {
 					retryCount++;
+					LOG.info("unable to delete: " + e.getMessage() + " retry..." + retryCount);
 					try {
 						Thread.sleep(retryTimeoutMillis);
 					} catch (InterruptedException e1) {
@@ -100,13 +100,12 @@ public class UploaderToSelectel implements Uploader {
 	@Override
 	public void submit(File file, String path) throws UploadException {
 		LOG.info("submitting: " + path);
-		String authToken2 = getAuthToken();
 		int retryCount = 0;
 		while (true) {
 			HttpResponse result = null;
 			try {
 				HttpPut put = new HttpPut(baseUrl + "/" + containerName + path);
-				put.addHeader("X-Auth-Token", authToken2);
+				put.addHeader("X-Auth-Token", getAuthToken());
 				put.setEntity(new FileEntity(file));
 				result = client.execute(put);
 				if (LOG.isDebugEnabled()) {
@@ -216,6 +215,9 @@ public class UploaderToSelectel implements Uploader {
 
 	private synchronized String getAuthToken() {
 		if (authToken == null || System.currentTimeMillis() > validUntil) {
+			if (authToken != null) {
+				LOG.info("re-newing auth token");
+			}
 			long start = System.currentTimeMillis();
 			HttpGet get = new HttpGet("https://auth.selcdn.ru");
 			get.addHeader("X-Auth-User", user);
@@ -230,7 +232,7 @@ public class UploaderToSelectel implements Uploader {
 				authToken = response.getFirstHeader("X-Auth-Token").getValue();
 				baseUrl = response.getFirstHeader("X-Storage-Url").getValue();
 				// convert seconds to millis
-				validUntil = start + Long.valueOf(response.getFirstHeader("X-Expire-Auth-Token").getValue()) * 1000;
+				validUntil = (start + Long.valueOf(response.getFirstHeader("X-Expire-Auth-Token").getValue()) * 1000) - timeout;
 			} catch (Exception e) {
 				throw new RuntimeException("Внутренняя ошибка. Попробуйте позднее", e);
 			} finally {
@@ -241,7 +243,7 @@ public class UploaderToSelectel implements Uploader {
 		}
 		return authToken;
 	}
-	
+
 	private HttpClient createClient() {
 		return createClient(timeout);
 	}
@@ -274,7 +276,7 @@ public class UploaderToSelectel implements Uploader {
 	public void setTimeout(int timeout) {
 		this.timeout = timeout;
 	}
-	
+
 	public void setRetries(int retries) {
 		this.retries = retries;
 	}
