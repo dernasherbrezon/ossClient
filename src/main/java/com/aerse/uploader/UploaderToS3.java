@@ -2,6 +2,7 @@ package com.aerse.uploader;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -25,11 +26,12 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.util.EntityUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class UploaderToS3 implements Uploader {
 
-	private static final Logger LOG = Logger.getLogger(UploaderToS3.class);
+	private static final Logger LOG = LoggerFactory.getLogger(UploaderToS3.class);
 	private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
 
 	private String bucket;
@@ -49,14 +51,14 @@ public class UploaderToS3 implements Uploader {
 
 	@Override
 	public void submit(File file, String path) throws UploadException {
-		LOG.info("submitting: " + path);
+		LOG.info("submitting: {}", path);
 
 		submitWithRetries(file, path, StorageClass.STANDARD);
 	}
 
 	@Override
 	public void delete(String path) throws UploadException {
-		LOG.info("deleting: " + path);
+		LOG.info("deleting: {}", path);
 
 		delete(Collections.singleton(path));
 	}
@@ -106,10 +108,10 @@ public class UploaderToS3 implements Uploader {
 			response = client.execute(del);
 			int code = response.getStatusLine().getStatusCode();
 			if (code != HttpStatus.SC_OK && code != HttpStatus.SC_NO_CONTENT) {
-				LOG.info("invalid response: " + response + " body: " + EntityUtils.toString(response.getEntity()));
+				LOG.info("invalid response: {} body: {}", response, EntityUtils.toString(response.getEntity()));
 				throw new UploadException(UploadException.INTERNAL_SERVER_ERROR, "Внутренняя ошибка. Попробуйте позднее");
 			}
-		} catch (Exception e) {
+		} catch (IOException e) {
 			LOG.info("unable to delete", e);
 			throw new UploadException(UploadException.INTERNAL_SERVER_ERROR, "Внутренняя ошибка. Попробуйте позднее", e);
 		} finally {
@@ -127,7 +129,7 @@ public class UploaderToS3 implements Uploader {
 				break;
 			} catch (UploadException e) {
 				if (i < retries) {
-					LOG.info("upload failed. continue..." + i);
+					LOG.info("upload failed. continue...{}", i);
 				}
 				try {
 					Thread.sleep(retryTimeoutMillis);
@@ -189,7 +191,7 @@ public class UploaderToS3 implements Uploader {
 
 	@Override
 	public void download(String path, Callback f) {
-		LOG.info("downloading: " + path);
+		LOG.info("downloading: {}", path);
 
 		if (path.charAt(0) != '/') {
 			path = "/" + path;
@@ -199,7 +201,7 @@ public class UploaderToS3 implements Uploader {
 		try {
 			response = client.execute(get);
 			if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-				LOG.info("invalid response code: " + response);
+				LOG.info("invalid response code: {}", response);
 				return;
 			}
 			f.onData(response.getEntity().getContent());

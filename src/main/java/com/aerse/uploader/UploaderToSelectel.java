@@ -28,14 +28,15 @@ import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.util.EntityUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 public class UploaderToSelectel implements Uploader {
 
-	private static final Logger LOG = Logger.getLogger(UploaderToSelectel.class);
+	private static final Logger LOG = LoggerFactory.getLogger(UploaderToSelectel.class);
 	private static final String INTERNAL_SERVER_ERROR = "Внутренняя ошибка. Попробуйте позднее";
 
 	private String user;
@@ -58,7 +59,7 @@ public class UploaderToSelectel implements Uploader {
 
 	@Override
 	public void delete(String path) throws UploadException {
-		LOG.info("deleting: " + path);
+		LOG.info("deleting: {}", path);
 		int retryCount = 0;
 		while (true) {
 			HttpResponse result = null;
@@ -67,7 +68,7 @@ public class UploaderToSelectel implements Uploader {
 				del.addHeader("X-Auth-Token", getAuthToken());
 				result = client.execute(del);
 				if (LOG.isDebugEnabled()) {
-					LOG.debug("response: " + EntityUtils.toString(result.getEntity()));
+					LOG.debug("response: {}", EntityUtils.toString(result.getEntity()));
 				}
 				if (result.getStatusLine().getStatusCode() == HttpStatus.SC_NO_CONTENT) {
 					return;
@@ -76,7 +77,7 @@ public class UploaderToSelectel implements Uploader {
 			} catch (IOException e) {
 				if (retryCount < retries) {
 					retryCount++;
-					LOG.info("unable to delete: " + e.getMessage() + " retry..." + retryCount);
+					LOG.info("unable to delete: {} retry...{}", e.getMessage(), retryCount);
 					try {
 						Thread.sleep(retryTimeoutMillis);
 					} catch (InterruptedException e1) {
@@ -96,7 +97,7 @@ public class UploaderToSelectel implements Uploader {
 
 	@Override
 	public void submit(File file, String path) throws UploadException {
-		LOG.info("submitting: " + path);
+		LOG.info("submitting: {}", path);
 		int retryCount = 0;
 		while (true) {
 			HttpResponse result = null;
@@ -106,11 +107,11 @@ public class UploaderToSelectel implements Uploader {
 				put.setEntity(new FileEntity(file));
 				result = client.execute(put);
 				if (LOG.isDebugEnabled()) {
-					LOG.debug("response: " + EntityUtils.toString(result.getEntity()));
+					LOG.debug("response: {}", EntityUtils.toString(result.getEntity()));
 				}
 				if (result.getStatusLine().getStatusCode() == HttpStatus.SC_CREATED) {
 					if (retryCount > 0) {
-						LOG.info("submitted: " + path);
+						LOG.info("submitted: {}", path);
 					}
 					return;
 				}
@@ -118,7 +119,7 @@ public class UploaderToSelectel implements Uploader {
 			} catch (IOException e) {
 				if (retryCount < 3) {
 					retryCount++;
-					LOG.info("unable to submit: " + path + " retry..." + retryCount);
+					LOG.info("unable to submit: {} retry...{}", path, retryCount);
 					try {
 						Thread.sleep(1000);
 					} catch (InterruptedException e1) {
@@ -139,7 +140,7 @@ public class UploaderToSelectel implements Uploader {
 	@SuppressWarnings("unchecked")
 	@Override
 	public List<FileEntry> listFiles(ListRequest req) {
-		LOG.info("listing: " + req);
+		LOG.info("listing: {}", req);
 		String authToken2 = getAuthToken();
 
 		StringBuilder builder = new StringBuilder();
@@ -169,7 +170,7 @@ public class UploaderToSelectel implements Uploader {
 		try {
 			result = client.execute(m);
 			if (result.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-				LOG.info("invalid response: " + result.getStatusLine());
+				LOG.info("invalid response: {}", result.getStatusLine());
 				return Collections.emptyList();
 			}
 			Type typeOfSrc = new TypeToken<List<FileEntry>>() {
@@ -188,7 +189,7 @@ public class UploaderToSelectel implements Uploader {
 
 	@Override
 	public void download(String path, Callback f) {
-		LOG.info("downloading: " + path);
+		LOG.info("downloading: {}", path);
 		String authToken2 = getAuthToken();
 		HttpGet put = new HttpGet(baseUrl + "/" + containerName + path);
 		put.addHeader("X-Auth-Token", authToken2);
@@ -196,7 +197,7 @@ public class UploaderToSelectel implements Uploader {
 		try {
 			result = client.execute(put);
 			if (result.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-				LOG.info("unable to download: " + EntityUtils.toString(result.getEntity()));
+				LOG.info("unable to download: {}", EntityUtils.toString(result.getEntity()));
 			} else {
 				f.onData(result.getEntity().getContent());
 			}
@@ -222,7 +223,7 @@ public class UploaderToSelectel implements Uploader {
 			try {
 				response = client.execute(get);
 				if (response.getStatusLine().getStatusCode() != HttpStatus.SC_NO_CONTENT) {
-					LOG.info("unable to auth: " + EntityUtils.toString(response.getEntity()));
+					LOG.info("unable to auth: {}", EntityUtils.toString(response.getEntity()));
 					throw new RuntimeException(INTERNAL_SERVER_ERROR);
 				}
 				authToken = response.getFirstHeader("X-Auth-Token").getValue();

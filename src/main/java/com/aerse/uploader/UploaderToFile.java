@@ -16,11 +16,12 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class UploaderToFile implements Uploader {
 
-	private static final Logger LOG = Logger.getLogger(UploaderToFile.class);
+	private static final Logger LOG = LoggerFactory.getLogger(UploaderToFile.class);
 
 	private String basePath;
 	private File basePathDir;
@@ -32,7 +33,7 @@ public class UploaderToFile implements Uploader {
 
 	@Override
 	public List<FileEntry> listFiles(final ListRequest req) {
-		LOG.info("listing: " + req);
+		LOG.info("listing: {}", req);
 
 		Collection<File> it = FileUtils.listFiles(new File(basePath), new IOFileFilter() {
 			@Override
@@ -90,7 +91,7 @@ public class UploaderToFile implements Uploader {
 
 	@Override
 	public void delete(String path) throws UploadException {
-		LOG.info("deleting: " + path);
+		LOG.info("deleting: {}", path);
 
 		File newPath = new File(basePath + path);
 		if (!newPath.exists()) {
@@ -112,7 +113,7 @@ public class UploaderToFile implements Uploader {
 
 	@Override
 	public void submit(File file, String path) throws UploadException {
-		LOG.info("submitting: " + path);
+		LOG.info("submitting: {}", path);
 
 		File newPath = new File(basePath + path);
 		if (!newPath.getParentFile().exists() && !newPath.getParentFile().mkdirs()) {
@@ -146,7 +147,7 @@ public class UploaderToFile implements Uploader {
 
 	@Override
 	public void download(String path, Callback f) {
-		LOG.info("downloading: " + path);
+		LOG.info("downloading: {}", path);
 
 		File filePath = new File(basePath + path);
 		if (filePath.exists()) {
