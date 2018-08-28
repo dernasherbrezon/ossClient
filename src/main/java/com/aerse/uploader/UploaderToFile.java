@@ -89,7 +89,7 @@ public class UploaderToFile implements Uploader {
 	}
 
 	@Override
-	public void delete(String path) {
+	public void delete(String path) throws UploadException {
 		LOG.info("deleting: " + path);
 
 		File newPath = new File(basePath + path);
@@ -100,24 +100,23 @@ public class UploaderToFile implements Uploader {
 			try {
 				FileUtils.deleteDirectory(newPath);
 			} catch (IOException e) {
-				LOG.error("unable to delete directory: " + newPath.getAbsolutePath(), e);
+				throw new UploadException(UploadException.INTERNAL_SERVER_ERROR, "unable to delete directory: " + newPath.getAbsolutePath(), e);
 			}
 
 		} else if (newPath.isFile()) {
 			if (!newPath.delete()) {
-				LOG.error("unable to delete file: " + newPath.getAbsolutePath());
+				throw new UploadException(UploadException.INTERNAL_SERVER_ERROR, "unable to delete file: " + newPath.getAbsolutePath());
 			}
 		}
 	}
 
 	@Override
-	public void submit(File file, String path) {
+	public void submit(File file, String path) throws UploadException {
 		LOG.info("submitting: " + path);
 
 		File newPath = new File(basePath + path);
 		if (!newPath.getParentFile().exists() && !newPath.getParentFile().mkdirs()) {
-			LOG.error("Unable to create dirs: " + newPath.getParentFile().getAbsolutePath());
-			throw new RuntimeException("Внутренняя ошибка. Попробуйте позднее");
+			throw new UploadException("Unable to create dirs: " + newPath.getParentFile().getAbsolutePath());
 		}
 		FileInputStream fis = null;
 		FileOutputStream fos = null;
@@ -125,9 +124,8 @@ public class UploaderToFile implements Uploader {
 			fos = new FileOutputStream(newPath);
 			fis = new FileInputStream(file);
 			IOUtils.copy(fis, fos);
-		} catch (Exception e) {
-			LOG.error("unable to copy", e);
-			throw new RuntimeException("Внутренняя ошибка. Попробуйте позднее");
+		} catch (IOException e) {
+			throw new UploadException(UploadException.INTERNAL_SERVER_ERROR, "unable to copy", e);
 		} finally {
 			if (fis != null) {
 				try {

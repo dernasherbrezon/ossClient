@@ -244,7 +244,7 @@ public class UploaderToSelectel implements Uploader {
 		return createClient(timeout);
 	}
 
-	public static HttpClient createClient(int timeout) {
+	static HttpClient createClient(int timeout) {
 		HttpParams params = new BasicHttpParams();
 		HttpConnectionParams.setSoTimeout(params, timeout);
 		HttpConnectionParams.setConnectionTimeout(params, timeout);
