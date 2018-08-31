@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.aerse</groupId>
 	<artifactId>uploader</artifactId>
-	<version>1.16-SNAPSHOT</version>
+	<version>1.16</version>
 	<url>https://github.com/dernasherbrezon/uploader</url>
 	<name>uploader</name>
 	<description>Single interface for different storage services</description>
@@ -172,7 +172,7 @@
 		<url>https://github.com/dernasherbrezon/uploader</url>
 		<connection>scm:git:git@github.com/dernasherbrezon/uploader.git</connection>
 		<developerConnection>scm:git:https://github.com/dernasherbrezon/uploader.git</developerConnection>
-		<tag>HEAD</tag>
+		<tag>uploader-1.16</tag>
 	</scm>
 
 	<issueManagement>
