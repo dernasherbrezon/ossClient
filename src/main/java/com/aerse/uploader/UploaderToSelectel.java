@@ -8,6 +8,7 @@ import java.lang.reflect.Type;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import javax.annotation.PostConstruct;
@@ -59,19 +60,27 @@ public class UploaderToSelectel implements Uploader {
 
 	@Override
 	public void delete(String path) throws UploadException {
-		LOG.info("deleting: {}", path);
+		if (LOG.isTraceEnabled()) {
+			LOG.trace("deleting: {}", path);
+		}
 		int retryCount = 0;
 		while (true) {
 			HttpResponse result = null;
 			try {
+				String authToken = getAuthToken();
 				HttpDelete del = new HttpDelete(baseUrl + "/" + containerName + path);
-				del.addHeader("X-Auth-Token", getAuthToken());
+				del.addHeader("X-Auth-Token", authToken);
 				result = client.execute(del);
 				if (LOG.isDebugEnabled()) {
 					LOG.debug("response: {}", EntityUtils.toString(result.getEntity()));
 				}
 				if (result.getStatusLine().getStatusCode() == HttpStatus.SC_NO_CONTENT) {
 					return;
+				}
+				if (result.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+					retryCount++;
+					resetAuthToken();
+					continue;
 				}
 				throw new UploadException(result.getStatusLine().getStatusCode(), INTERNAL_SERVER_ERROR);
 			} catch (IOException e) {
@@ -97,13 +106,16 @@ public class UploaderToSelectel implements Uploader {
 
 	@Override
 	public void submit(File file, String path) throws UploadException {
-		LOG.info("submitting: {}", path);
+		if (LOG.isTraceEnabled()) {
+			LOG.trace("submitting: {}", path);
+		}
 		int retryCount = 0;
 		while (true) {
 			HttpResponse result = null;
 			try {
+				String authToken = getAuthToken();
 				HttpPut put = new HttpPut(baseUrl + "/" + containerName + path);
-				put.addHeader("X-Auth-Token", getAuthToken());
+				put.addHeader("X-Auth-Token", authToken);
 				put.setEntity(new FileEntity(file));
 				result = client.execute(put);
 				if (LOG.isDebugEnabled()) {
@@ -114,6 +126,11 @@ public class UploaderToSelectel implements Uploader {
 						LOG.info("submitted: {}", path);
 					}
 					return;
+				}
+				if (result.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+					retryCount++;
+					resetAuthToken();
+					continue;
 				}
 				throw new UploadException(result.getStatusLine().getStatusCode(), "invalid response: " + result.getStatusLine());
 			} catch (IOException e) {
@@ -140,7 +157,9 @@ public class UploaderToSelectel implements Uploader {
 	@SuppressWarnings("unchecked")
 	@Override
 	public List<FileEntry> listFiles(ListRequest req) {
-		LOG.info("listing: {}", req);
+		if (LOG.isTraceEnabled()) {
+			LOG.trace("listing: {}", req);
+		}
 		String authToken2 = getAuthToken();
 
 		StringBuilder builder = new StringBuilder();
@@ -189,7 +208,9 @@ public class UploaderToSelectel implements Uploader {
 
 	@Override
 	public void download(String path, Callback f) {
-		LOG.info("downloading: {}", path);
+		if (LOG.isTraceEnabled()) {
+			LOG.trace("downloading: {}", path);
+		}
 		String authToken2 = getAuthToken();
 		HttpGet put = new HttpGet(baseUrl + "/" + containerName + path);
 		put.addHeader("X-Auth-Token", authToken2);
@@ -230,6 +251,7 @@ public class UploaderToSelectel implements Uploader {
 				baseUrl = response.getFirstHeader("X-Storage-Url").getValue();
 				// convert seconds to millis
 				validUntil = (start + Long.valueOf(response.getFirstHeader("X-Expire-Auth-Token").getValue()) * 1000) - timeout;
+				LOG.info("the token will expire at: {}", new Date(validUntil));
 			} catch (IOException e) {
 				throw new RuntimeException(INTERNAL_SERVER_ERROR, e);
 			} finally {
@@ -239,6 +261,11 @@ public class UploaderToSelectel implements Uploader {
 			}
 		}
 		return authToken;
+	}
+
+	private synchronized void resetAuthToken() {
+		LOG.info("not authorized. resetting auth token");
+		authToken = null;
 	}
 
 	private HttpClient createClient() {
