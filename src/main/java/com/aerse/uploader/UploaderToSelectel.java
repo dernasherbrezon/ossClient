@@ -12,22 +12,20 @@ import java.util.Date;
 import java.util.List;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
-import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.protocol.RequestAcceptEncoding;
 import org.apache.http.client.protocol.ResponseContentEncoding;
 import org.apache.http.entity.FileEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.PoolingClientConnectionManager;
-import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.HttpConnectionParams;
-import org.apache.http.params.HttpParams;
-import org.apache.http.params.HttpProtocolParams;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,11 +49,18 @@ public class UploaderToSelectel implements Uploader {
 	private String baseUrl;
 	private long validUntil;
 
-	private HttpClient client;
+	private CloseableHttpClient client;
 
 	@PostConstruct
 	public void start() {
 		client = createClient();
+	}
+
+	@PreDestroy
+	public void stop() throws IOException {
+		if (client != null) {
+			client.close();
+		}
 	}
 
 	@Override
@@ -86,7 +91,7 @@ public class UploaderToSelectel implements Uploader {
 			} catch (IOException e) {
 				if (retryCount < retries) {
 					retryCount++;
-					LOG.info("unable to delete: {} retry...{}", e.getMessage(), retryCount);
+					LOG.info("unable to delete: {} retry...{} exception {}", e.getMessage(), retryCount, e.getMessage());
 					try {
 						Thread.sleep(retryTimeoutMillis);
 					} catch (InterruptedException e1) {
@@ -136,9 +141,9 @@ public class UploaderToSelectel implements Uploader {
 			} catch (IOException e) {
 				if (retryCount < 3) {
 					retryCount++;
-					LOG.info("unable to submit: {} retry...{}", path, retryCount);
+					LOG.info("unable to submit: {} retry...{} exception {}", path, retryCount, e.getMessage());
 					try {
-						Thread.sleep(1000);
+						Thread.sleep(retryTimeoutMillis);
 					} catch (InterruptedException e1) {
 						LOG.info("sleep interrupted. exit");
 						break;
@@ -268,21 +273,21 @@ public class UploaderToSelectel implements Uploader {
 		authToken = null;
 	}
 
-	private HttpClient createClient() {
+	private CloseableHttpClient createClient() {
 		return createClient(timeout);
 	}
 
-	static HttpClient createClient(int timeout) {
-		HttpParams params = new BasicHttpParams();
-		HttpConnectionParams.setSoTimeout(params, timeout);
-		HttpConnectionParams.setConnectionTimeout(params, timeout);
-		HttpProtocolParams.setUserAgent(params, "AerseUploader");
-		HttpProtocolParams.setContentCharset(params, "utf-8");
+	static CloseableHttpClient createClient(int timeout) {
+		PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
 
-		DefaultHttpClient client = new DefaultHttpClient(new PoolingClientConnectionManager(), params);
-		client.addRequestInterceptor(new RequestAcceptEncoding());
-		client.addResponseInterceptor(new ResponseContentEncoding());
-		return client;
+		RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(timeout).setConnectionRequestTimeout(timeout).setSocketTimeout(timeout).build();
+		HttpClientBuilder builder = HttpClientBuilder.create();
+		builder.addInterceptorFirst(new RequestAcceptEncoding());
+		builder.addInterceptorFirst(new ResponseContentEncoding());
+		builder.setConnectionManager(cm);
+		builder.setUserAgent("AerseUploader (1.17)");
+		builder.setDefaultRequestConfig(requestConfig);
+		return builder.build();
 	}
 
 	public void setUser(String user) {
