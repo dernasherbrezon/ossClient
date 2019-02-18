@@ -76,7 +76,7 @@ public class UploaderToSelectel implements Uploader {
 				HttpDelete del = new HttpDelete(baseUrl + "/" + containerName + path);
 				del.addHeader("X-Auth-Token", authToken);
 				result = client.execute(del);
-				if (LOG.isDebugEnabled()) {
+				if (LOG.isDebugEnabled() && result.getEntity() != null) {
 					LOG.debug("response: {}", EntityUtils.toString(result.getEntity()));
 				}
 				if (result.getStatusLine().getStatusCode() == HttpStatus.SC_NO_CONTENT) {
@@ -123,7 +123,7 @@ public class UploaderToSelectel implements Uploader {
 				put.addHeader("X-Auth-Token", authToken);
 				put.setEntity(new FileEntity(file));
 				result = client.execute(put);
-				if (LOG.isDebugEnabled()) {
+				if (LOG.isDebugEnabled() && result.getEntity() != null) {
 					LOG.debug("response: {}", EntityUtils.toString(result.getEntity()));
 				}
 				if (result.getStatusLine().getStatusCode() == HttpStatus.SC_CREATED) {
