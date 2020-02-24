@@ -10,9 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -51,12 +49,10 @@ public class UploaderToSelectel implements Uploader {
 
 	private CloseableHttpClient client;
 
-	@PostConstruct
 	public void start() {
 		client = createClient();
 	}
 
-	@PreDestroy
 	public void stop() throws IOException {
 		if (client != null) {
 			client.close();
@@ -278,7 +274,7 @@ public class UploaderToSelectel implements Uploader {
 	}
 
 	static CloseableHttpClient createClient(int timeout) {
-		PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+		PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager(timeout, TimeUnit.MILLISECONDS);
 
 		RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(timeout).setConnectionRequestTimeout(timeout).setSocketTimeout(timeout).build();
 		HttpClientBuilder builder = HttpClientBuilder.create();

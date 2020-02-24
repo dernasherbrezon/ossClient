@@ -15,13 +15,13 @@
 		<property name="basePath" value="${uploader.basePath}" />
 	</bean>
 
-	<bean id="uploaderToSelectel" class="com.aerse.uploader.UploaderToSelectel">
+	<bean id="uploaderToSelectel" class="com.aerse.uploader.UploaderToSelectel" init-method="start" destroy-method="stop">
 		<property name="user" value="${selectel.user}" />
 		<property name="key" value="${selectel.key}" />
 		<property name="containerName" value="${selectel.containerName}" />
-		<property name="retryTimeoutMillis" value="${selectel.retryTimeoutMillis:1000}"/>
+		<property name="retryTimeoutMillis" value="${selectel.retryTimeoutMillis:10000}"/>
 		<property name="retries" value="${selectel.retries:3}"/>
-		<property name="timeout" value="${selectel.timeout:10000}"/>
+		<property name="timeout" value="${selectel.timeout:5000}"/>
 	</bean>
 
 	<bean id="uploaderToS3" class="com.aerse.uploader.UploaderToS3" init-method="start">

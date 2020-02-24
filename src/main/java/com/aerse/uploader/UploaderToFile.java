@@ -10,8 +10,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import javax.annotation.PostConstruct;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
@@ -26,7 +24,6 @@ public class UploaderToFile implements Uploader {
 	private String basePath;
 	private File basePathDir;
 
-	@PostConstruct
 	public void start() {
 		basePathDir = initDir(basePath);
 	}
