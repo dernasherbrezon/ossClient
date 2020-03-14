@@ -4,16 +4,16 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.filefilter.IOFileFilter;
-import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,23 +29,23 @@ public class FileOssClient implements OssClient {
 	}
 
 	@Override
-	public List<FileEntry> listFiles(final ListRequest req) {
+	public List<FileEntry> listFiles(final ListRequest req) throws OssException {
 		LOG.info("listing: {}", req);
 
-		Collection<File> it = FileUtils.listFiles(new File(basePath), new IOFileFilter() {
-			@Override
-			public boolean accept(File dir, String name) {
-				return accept(new File(dir, name));
-			}
-
-			@Override
-			public boolean accept(File file) {
-				if (req.getPrefix() == null) {
-					return true;
+		List<File> sorted = new ArrayList<>();
+		try {
+			Files.walkFileTree(basePathDir.toPath(), new SimpleFileVisitor<Path>() {
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					if (req.getPrefix() == null || file.toFile().getAbsolutePath().startsWith(basePathDir.getAbsolutePath() + req.getPrefix())) {
+						sorted.add(file.toFile());
+					}
+					return FileVisitResult.CONTINUE;
 				}
-				return file.getAbsolutePath().startsWith(basePathDir.getAbsolutePath() + req.getPrefix());
-			}
-		}, TrueFileFilter.INSTANCE);
+			});
+		} catch (IOException e) {
+			throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to list", e);
+		}
 		boolean foundMarker = false;
 
 		File markerFile;
@@ -55,7 +55,6 @@ public class FileOssClient implements OssClient {
 			markerFile = null;
 		}
 
-		List<File> sorted = new ArrayList<>(it);
 		Collections.sort(sorted);
 
 		List<FileEntry> result = new ArrayList<FileEntry>();
@@ -94,17 +93,22 @@ public class FileOssClient implements OssClient {
 		if (!newPath.exists()) {
 			return;
 		}
-		if (newPath.isDirectory()) {
-			try {
-				FileUtils.deleteDirectory(newPath);
-			} catch (IOException e) {
-				throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to delete directory: " + newPath.getAbsolutePath(), e);
-			}
+		try {
+			Files.walkFileTree(newPath.toPath(), new SimpleFileVisitor<Path>() {
+				@Override
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					Files.delete(dir);
+					return FileVisitResult.CONTINUE;
+				}
 
-		} else if (newPath.isFile()) {
-			if (!newPath.delete()) {
-				throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to delete file: " + newPath.getAbsolutePath());
-			}
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					Files.delete(file);
+					return FileVisitResult.CONTINUE;
+				}
+			});
+		} catch (IOException e1) {
+			throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to delete path", e1);
 		}
 	}
 
@@ -116,29 +120,10 @@ public class FileOssClient implements OssClient {
 		if (!newPath.getParentFile().exists() && !newPath.getParentFile().mkdirs()) {
 			throw new OssException("Unable to create dirs: " + newPath.getParentFile().getAbsolutePath());
 		}
-		FileInputStream fis = null;
-		FileOutputStream fos = null;
-		try {
-			fos = new FileOutputStream(newPath);
-			fis = new FileInputStream(file);
-			IOUtils.copy(fis, fos);
+		try (FileOutputStream fos = new FileOutputStream(newPath)) {
+			Files.copy(file.toPath(), fos);
 		} catch (IOException e) {
 			throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to copy", e);
-		} finally {
-			if (fis != null) {
-				try {
-					fis.close();
-				} catch (IOException e) {
-					LOG.info("unable to close cursors", e);
-				}
-			}
-			if (fos != null) {
-				try {
-					fos.close();
-				} catch (IOException e) {
-					LOG.info("unable to close cursors", e);
-				}
-			}
 		}
 	}
 
@@ -148,14 +133,10 @@ public class FileOssClient implements OssClient {
 
 		File filePath = new File(basePath + path);
 		if (filePath.exists()) {
-			FileInputStream fis = null;
-			try {
-				fis = new FileInputStream(filePath);
+			try (FileInputStream fis = new FileInputStream(filePath)) {
 				f.onData(fis);
 			} catch (Exception e) {
 				LOG.error("unable to callback", e);
-			} finally {
-				IOUtils.closeQuietly(fis);
 			}
 		}
 	}
