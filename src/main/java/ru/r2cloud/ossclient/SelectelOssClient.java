@@ -32,7 +32,7 @@ import com.eclipsesource.json.ParseException;
 
 public class SelectelOssClient implements OssClient {
 
-	private static final String USER_AGENT = "r2cloud uploader/1.18";
+	private static final String USER_AGENT = "ossClient/2.0 (dernasherbrezon)";
 
 	private static final Logger LOG = LoggerFactory.getLogger(SelectelOssClient.class);
 
