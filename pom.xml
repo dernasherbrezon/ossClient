@@ -7,7 +7,7 @@
 	<version>2.0-SNAPSHOT</version>
 	<url>https://github.com/dernasherbrezon/uploader</url>
 	<name>uploader</name>
-	<description>Single interface for different storage services</description>
+	<description>Single interface for objects storage services</description>
 	<inceptionYear>2014</inceptionYear>
 
 	<properties>
