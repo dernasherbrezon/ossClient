@@ -82,7 +82,7 @@ public class FileOssClient implements OssClient {
 		FileEntry result = new FileEntry();
 		result.setBytes(cur.length());
 		result.setName(fileName.substring(basePathName.length()));
-		result.setLast_modified(new Date(cur.lastModified()).toString());
+		result.setLastModified(new Date(cur.lastModified()).toString());
 		return result;
 	}
 

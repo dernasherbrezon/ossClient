@@ -187,9 +187,9 @@ public class SelectelOssClient implements OssClient {
 	private static FileEntry convert(JsonObject cur) {
 		FileEntry result = new FileEntry();
 		result.setBytes(cur.getLong("bytes", 0));
-		result.setContent_type(cur.getString("content_type", null));
+		result.setContentType(cur.getString("content_type", null));
 		result.setHash(cur.getString("hash", null));
-		result.setLast_modified(cur.getString("last_modified", null));
+		result.setLastModified(cur.getString("last_modified", null));
 		result.setName(cur.getString("name", null));
 		return result;
 	}
