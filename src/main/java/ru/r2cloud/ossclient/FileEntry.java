@@ -1,4 +1,4 @@
-package com.aerse.uploader;
+package ru.r2cloud.ossclient;
 
 public class FileEntry {
 

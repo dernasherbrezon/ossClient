@@ -1,6 +1,6 @@
-package com.aerse.uploader;
+package ru.r2cloud.ossclient;
 
-public class UploadException extends Exception {
+public class OssException extends Exception {
 
 	private static final long serialVersionUID = -2894157707774693665L;
 
@@ -9,16 +9,16 @@ public class UploadException extends Exception {
 
 	private int code;
 
-	public UploadException(String message) {
+	public OssException(String message) {
 		super(message);
 	}
 
-	public UploadException(int code, String message, Throwable e) {
+	public OssException(int code, String message, Throwable e) {
 		super(message, e);
 		this.code = code;
 	}
 
-	public UploadException(int code, String message) {
+	public OssException(int code, String message) {
 		super(message);
 		this.code = code;
 	}

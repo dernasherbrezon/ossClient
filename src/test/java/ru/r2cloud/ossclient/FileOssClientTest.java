@@ -1,4 +1,4 @@
-package com.aerse.uploader;
+package ru.r2cloud.ossclient;
 
 import static org.junit.Assert.assertEquals;
 
@@ -7,9 +7,13 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 
-public class UploaderToFileTest {
+import ru.r2cloud.ossclient.FileEntry;
+import ru.r2cloud.ossclient.ListRequest;
+import ru.r2cloud.ossclient.FileOssClient;
 
-	private UploaderToFile uploader;
+public class FileOssClientTest {
+
+	private FileOssClient uploader;
 	
 	@Test
 	public void testList4() {
@@ -53,7 +57,7 @@ public class UploaderToFileTest {
 
 	@Before
 	public void start() {
-		uploader = new UploaderToFile();
+		uploader = new FileOssClient();
 		uploader.setBasePath("./src/test/resources/listtest");
 		uploader.start();
 	}

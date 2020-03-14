@@ -1,4 +1,4 @@
-package com.aerse.uploader;
+package ru.r2cloud.ossclient;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -17,9 +17,9 @@ import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class UploaderToFile implements Uploader {
+public class FileOssClient implements OssClient {
 
-	private static final Logger LOG = LoggerFactory.getLogger(UploaderToFile.class);
+	private static final Logger LOG = LoggerFactory.getLogger(FileOssClient.class);
 
 	private String basePath;
 	private File basePathDir;
@@ -87,7 +87,7 @@ public class UploaderToFile implements Uploader {
 	}
 
 	@Override
-	public void delete(String path) throws UploadException {
+	public void delete(String path) throws OssException {
 		LOG.info("deleting: {}", path);
 
 		File newPath = new File(basePath + path);
@@ -98,23 +98,23 @@ public class UploaderToFile implements Uploader {
 			try {
 				FileUtils.deleteDirectory(newPath);
 			} catch (IOException e) {
-				throw new UploadException(UploadException.INTERNAL_SERVER_ERROR, "unable to delete directory: " + newPath.getAbsolutePath(), e);
+				throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to delete directory: " + newPath.getAbsolutePath(), e);
 			}
 
 		} else if (newPath.isFile()) {
 			if (!newPath.delete()) {
-				throw new UploadException(UploadException.INTERNAL_SERVER_ERROR, "unable to delete file: " + newPath.getAbsolutePath());
+				throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to delete file: " + newPath.getAbsolutePath());
 			}
 		}
 	}
 
 	@Override
-	public void submit(File file, String path) throws UploadException {
+	public void submit(File file, String path) throws OssException {
 		LOG.info("submitting: {}", path);
 
 		File newPath = new File(basePath + path);
 		if (!newPath.getParentFile().exists() && !newPath.getParentFile().mkdirs()) {
-			throw new UploadException("Unable to create dirs: " + newPath.getParentFile().getAbsolutePath());
+			throw new OssException("Unable to create dirs: " + newPath.getParentFile().getAbsolutePath());
 		}
 		FileInputStream fis = null;
 		FileOutputStream fos = null;
@@ -123,7 +123,7 @@ public class UploaderToFile implements Uploader {
 			fis = new FileInputStream(file);
 			IOUtils.copy(fis, fos);
 		} catch (IOException e) {
-			throw new UploadException(UploadException.INTERNAL_SERVER_ERROR, "unable to copy", e);
+			throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to copy", e);
 		} finally {
 			if (fis != null) {
 				try {
