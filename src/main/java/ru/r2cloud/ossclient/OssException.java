@@ -7,10 +7,11 @@ public class OssException extends Exception {
 	public static final int NOT_FOUND = 404;
 	public static final int INTERNAL_SERVER_ERROR = 503;
 
-	private int code;
+	private final int code;
 
 	public OssException(String message) {
 		super(message);
+		this.code = INTERNAL_SERVER_ERROR;
 	}
 
 	public OssException(int code, String message, Throwable e) {
