@@ -91,7 +91,7 @@ public class FileOssClient implements OssClient {
 
 		File newPath = new File(basePath + path);
 		if (!newPath.exists()) {
-			return;
+			throw new OssException(404, "path not found");
 		}
 		try {
 			Files.walkFileTree(newPath.toPath(), new SimpleFileVisitor<Path>() {

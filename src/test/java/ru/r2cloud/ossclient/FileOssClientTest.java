@@ -32,6 +32,11 @@ public class FileOssClientTest {
 		fileClient.submit(tempFile, "/v1/" + UUID.randomUUID().toString() + "/" + tempFile.getName());
 	}
 
+	@Test(expected = OssException.class)
+	public void testDeleteUnknown() throws Exception {
+		fileClient.delete(UUID.randomUUID().toString());
+	}
+
 	@Test
 	public void testDelete() throws Exception {
 		fileClient = new FileOssClient();
