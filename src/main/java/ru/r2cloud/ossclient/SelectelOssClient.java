@@ -51,7 +51,7 @@ public class SelectelOssClient implements OssClient {
 	private HttpClient httpclient;
 
 	public void start() {
-		httpclient = HttpClient.newBuilder().version(Version.HTTP_2).followRedirects(Redirect.NORMAL).connectTimeout(Duration.ofMillis(timeout)).build();
+		httpclient = HttpClient.newBuilder().version(Version.HTTP_1_1).followRedirects(Redirect.NORMAL).connectTimeout(Duration.ofMillis(timeout)).build();
 	}
 
 	@Override
