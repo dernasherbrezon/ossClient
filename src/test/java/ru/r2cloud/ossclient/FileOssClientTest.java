@@ -2,8 +2,12 @@ package ru.r2cloud.ossclient;
 
 import static org.junit.Assert.assertEquals;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,16 +24,45 @@ public class FileOssClientTest {
 	public TemporaryFolder tempFolder = new TemporaryFolder();
 
 	@Test
+	public void testDownload() throws Exception {
+		fileClient = new FileOssClient();
+		fileClient.setBasePath(tempFolder.getRoot().getAbsolutePath());
+		fileClient.start();
+
+		String data = UUID.randomUUID().toString();
+		File tempFile = createTempFile(data);
+		String path = "/v1/" + UUID.randomUUID().toString() + "/" + tempFile.getName();
+		fileClient.submit(tempFile, path);
+
+		fileClient.download(path, new Callback() {
+
+			@Override
+			public void onData(InputStream is) {
+				try (BufferedReader r = new BufferedReader(new InputStreamReader(is))) {
+					assertEquals(data, r.readLine());
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+			}
+		});
+	}
+
+	@Test
 	public void testSubmit() throws Exception {
 		fileClient = new FileOssClient();
 		fileClient.setBasePath(tempFolder.getRoot().getAbsolutePath());
 		fileClient.start();
 
+		File tempFile = createTempFile(UUID.randomUUID().toString());
+		fileClient.submit(tempFile, "/v1/" + UUID.randomUUID().toString() + "/" + tempFile.getName());
+	}
+
+	private File createTempFile(String data) throws IOException {
 		File tempFile = new File(tempFolder.getRoot(), UUID.randomUUID().toString());
 		try (FileWriter fw = new FileWriter(tempFile)) {
-			fw.append(UUID.randomUUID().toString());
+			fw.append(data);
 		}
-		fileClient.submit(tempFile, "/v1/" + UUID.randomUUID().toString() + "/" + tempFile.getName());
+		return tempFile;
 	}
 
 	@Test(expected = OssException.class)
@@ -43,10 +76,7 @@ public class FileOssClientTest {
 		fileClient.setBasePath(tempFolder.getRoot().getAbsolutePath());
 		fileClient.start();
 
-		File tempFile = new File(tempFolder.getRoot(), UUID.randomUUID().toString());
-		try (FileWriter fw = new FileWriter(tempFile)) {
-			fw.append(UUID.randomUUID().toString());
-		}
+		File tempFile = createTempFile(UUID.randomUUID().toString());
 		String path = "/v1/" + UUID.randomUUID().toString() + "/" + tempFile.getName();
 		fileClient.submit(tempFile, path);
 		fileClient.delete(path);
