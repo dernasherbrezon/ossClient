@@ -25,7 +25,7 @@ public class AuthHttpHandler implements HttpHandler {
 		exchange.getResponseHeaders().add("X-Auth-Token", UUID.randomUUID().toString());
 		exchange.getResponseHeaders().add("X-Storage-Url", "http://" + host + ":" + port + dataBasePath);
 		exchange.getResponseHeaders().add("X-Expire-Auth-Token", "100000");
-		exchange.sendResponseHeaders(statusCode, 0);
+		exchange.sendResponseHeaders(statusCode, -1);
 		exchange.close();
 	}
 }

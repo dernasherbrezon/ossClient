@@ -1,6 +1,11 @@
 package ru.r2cloud.ossclient;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.After;
@@ -17,16 +22,38 @@ public class SelectelOssClientTest {
 	private static final String AUTH_ENDPOINT = "/auth/v1.0";
 	private static final String HOST = "localhost";
 	private static final int PORT = 8000;
+	private static final String CONTAINER_NAME = "container";
+	private static final String BASEDATAPATH = "/data";
 
 	private SelectelOssClient client;
 	private HttpServer server;
+	private FileOssClient fileClient;
 
 	@Rule
 	public TemporaryFolder tempFolder = new TemporaryFolder();
 
+	@Test
+	public void testDeleteWithAuthFailure() throws Exception {
+		String path = "/testFile";
+		fileClient.submit(createTempFile(UUID.randomUUID().toString()), path);
+		List<HttpHandler> handlers = new ArrayList<>();
+		handlers.add(new DeleteHandler(fileClient, path, 401));
+		handlers.add(new DeleteHandler(fileClient, path, 201));
+		server.createContext(BASEDATAPATH + "/" + CONTAINER_NAME + path, new SequentialHttpHandler(handlers));
+		client.delete(path);
+	}
+
+	@Test
+	public void testDelete() throws Exception {
+		String path = "/testFile";
+		fileClient.submit(createTempFile(UUID.randomUUID().toString()), path);
+		server.createContext(BASEDATAPATH + "/" + CONTAINER_NAME + path, new DeleteHandler(fileClient, path, 201));
+		client.delete(path);
+	}
+
 	@Test(expected = OssException.class)
 	public void testInvalidAuth() throws Exception {
-		setupContext(AUTH_ENDPOINT, new AuthHttpHandler(HOST, PORT, "/data", 401));
+		setupContext(AUTH_ENDPOINT, new AuthHttpHandler(HOST, PORT, BASEDATAPATH, 401));
 		client.delete(UUID.randomUUID().toString());
 	}
 
@@ -45,13 +72,17 @@ public class SelectelOssClientTest {
 
 		client = new SelectelOssClient();
 		client.setAuthUrl("http://" + HOST + ":" + PORT + AUTH_ENDPOINT);
-		client.setContainerName(UUID.randomUUID().toString());
+		client.setContainerName(CONTAINER_NAME);
 		client.setKey(UUID.randomUUID().toString());
 		client.setRetries(3);
 		client.setRetryTimeoutMillis(10_000L);
 		client.setTimeout(10_000);
 		client.setUser(UUID.randomUUID().toString());
 		client.start();
+
+		fileClient = new FileOssClient();
+		fileClient.setBasePath(tempFolder.getRoot().getAbsolutePath());
+		fileClient.start();
 	}
 
 	private void setupContext(String name, HttpHandler handler) {
@@ -64,5 +95,13 @@ public class SelectelOssClientTest {
 		if (server != null) {
 			server.stop(0);
 		}
+	}
+
+	private File createTempFile(String data) throws IOException {
+		File tempFile = new File(tempFolder.getRoot(), UUID.randomUUID().toString());
+		try (FileWriter fw = new FileWriter(tempFile)) {
+			fw.append(data);
+		}
+		return tempFile;
 	}
 }
