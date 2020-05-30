@@ -104,4 +104,5 @@ public class SelectelOssClientTest {
 		}
 		return tempFile;
 	}
+
 }

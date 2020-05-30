@@ -4,23 +4,22 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpClient.Redirect;
-import java.net.http.HttpClient.Version;
-import java.net.http.HttpRequest;
-import java.net.http.HttpRequest.BodyPublishers;
-import java.net.http.HttpRequest.Builder;
-import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Properties;
 
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.FileEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,10 +31,9 @@ import com.eclipsesource.json.ParseException;
 
 public class SelectelOssClient implements OssClient {
 
-	private static final String USER_AGENT = "ossClient/2.0 (dernasherbrezon)";
-
 	private static final Logger LOG = LoggerFactory.getLogger(SelectelOssClient.class);
 
+	private static String userAgent;
 	private String authUrl;
 	private String user;
 	private String key;
@@ -48,10 +46,19 @@ public class SelectelOssClient implements OssClient {
 	private String baseUrl;
 	private long validUntil;
 
-	private HttpClient httpclient;
+	private CloseableHttpClient httpclient;
 
+	static {
+		String version = readVersion();
+		if (version == null) {
+			version = "2.0";
+		}
+		userAgent = "ossClient/" + version + " (dernasherbrezon)";
+	}
+	
 	public void start() {
-		httpclient = HttpClient.newBuilder().version(Version.HTTP_1_1).followRedirects(Redirect.NORMAL).connectTimeout(Duration.ofMillis(timeout)).build();
+		RequestConfig config = RequestConfig.custom().setConnectTimeout(timeout).setConnectionRequestTimeout(timeout).build();
+		httpclient = HttpClientBuilder.create().setUserAgent(userAgent).setDefaultRequestConfig(config).build();
 	}
 
 	@Override
@@ -60,24 +67,32 @@ public class SelectelOssClient implements OssClient {
 			LOG.trace("deleting: {}", path);
 		}
 		executeWithRetry(currentRetry -> {
-			HttpRequest request = createRequest(path).DELETE().build();
-			HttpResponse<String> response = httpclient.send(request, BodyHandlers.ofString());
-			if (LOG.isDebugEnabled()) {
-				LOG.debug("response: {}", response.body());
-			}
-			if (response.statusCode() == 201 || response.statusCode() == 204) {
-				// log only when retry happened
-				if (currentRetry > 0) {
-					LOG.info("deleted: {}", path);
+			HttpDelete method = new HttpDelete(baseUrl + "/" + containerName + path);
+			method.setHeader("X-Auth-Token", authToken);
+			org.apache.http.HttpResponse response = null;
+			try {
+				response = httpclient.execute(method);
+				if (LOG.isDebugEnabled()) {
+					LOG.debug("response: {}", EntityUtils.toString(response.getEntity()));
 				}
-				return true;
+				int statusCode = response.getStatusLine().getStatusCode();
+				if (statusCode == 201 || statusCode == 204) {
+					// log only when retry happened
+					if (currentRetry > 0) {
+						LOG.info("deleted: {}", path);
+					}
+					return true;
+				}
+				if (statusCode == 401) {
+					resetAuthToken();
+					return false;
+				}
+				throw new OssException(statusCode, "unable to delete");
+			} finally {
+				if (response != null) {
+					EntityUtils.consumeQuietly(response.getEntity());
+				}
 			}
-			if (response.statusCode() == 401) {
-				resetAuthToken();
-				return false;
-			}
-
-			throw new OssException(response.statusCode(), "unable to delete");
 		}, path);
 	}
 
@@ -87,22 +102,33 @@ public class SelectelOssClient implements OssClient {
 			LOG.trace("submitting: {}", path);
 		}
 		executeWithRetry(currentRetry -> {
-			HttpRequest request = createRequest(path).PUT(BodyPublishers.ofFile(file.toPath())).build();
-			HttpResponse<String> response = httpclient.send(request, BodyHandlers.ofString());
-			if (LOG.isDebugEnabled()) {
-				LOG.debug("response: {}", response.body());
-			}
-			if (response.statusCode() == 201) {
-				// log only when retry happened
-				if (currentRetry > 0) {
-					LOG.info("submitted: {}", path);
+			HttpPut method = new HttpPut(baseUrl + "/" + containerName + path);
+			method.setHeader("X-Auth-Token", authToken);
+			method.setEntity(new FileEntity(file));
+			org.apache.http.HttpResponse response = null;
+			try {
+				response = httpclient.execute(method);
+				if (LOG.isDebugEnabled()) {
+					LOG.debug("response: {}", EntityUtils.toString(response.getEntity()));
 				}
-				return true;
+				int statusCode = response.getStatusLine().getStatusCode();
+				if (statusCode == 201) {
+					// log only when retry happened
+					if (currentRetry > 0) {
+						LOG.info("submitted: {}", path);
+					}
+					return true;
+				}
+				if (statusCode == 401) {
+					resetAuthToken();
+					return false;
+				}
+				return false;
+			} finally {
+				if (response != null) {
+					EntityUtils.consumeQuietly(response.getEntity());
+				}
 			}
-			if (response.statusCode() == 401) {
-				resetAuthToken();
-			}
-			return false;
 		}, path);
 	}
 
@@ -144,17 +170,24 @@ public class SelectelOssClient implements OssClient {
 			LOG.trace("listing: {}", req);
 		}
 		refreshToken();
-		HttpRequest request = createRequest(createRequestUrl(req)).GET().build();
+		HttpGet method = new HttpGet(baseUrl + "/" + containerName + createRequestUrl(req));
+		method.setHeader("X-Auth-Token", authToken);
+		org.apache.http.HttpResponse response = null;
 		try {
-			HttpResponse<InputStream> response = httpclient.send(request, BodyHandlers.ofInputStream());
-			if (response.statusCode() != 200) {
-				LOG.info("invalid response: {}", response.statusCode());
+			response = httpclient.execute(method);
+			int statusCode = response.getStatusLine().getStatusCode();
+			if (statusCode != 200) {
+				LOG.info("invalid response: {}", statusCode);
 				return Collections.emptyList();
 			}
-			return readEntries(response.body());
+			return readEntries(response.getEntity().getContent());
 		} catch (Exception e) {
 			LOG.error("unable to list files", e);
 			return Collections.emptyList();
+		} finally {
+			if (response != null) {
+				EntityUtils.consumeQuietly(response.getEntity());
+			}
 		}
 	}
 
@@ -221,21 +254,23 @@ public class SelectelOssClient implements OssClient {
 			LOG.trace("downloading: {}", path);
 		}
 		refreshToken();
-		HttpRequest request = createRequest(path).GET().build();
-		HttpResponse<InputStream> response;
+		HttpGet method = new HttpGet(baseUrl + "/" + containerName + path);
+		method.setHeader("X-Auth-Token", authToken);
+		org.apache.http.HttpResponse response = null;
 		try {
-			response = httpclient.send(request, BodyHandlers.ofInputStream());
+			response = httpclient.execute(method);
+			int statusCode = response.getStatusLine().getStatusCode();
+			if (statusCode != 200) {
+				throw new OssException(statusCode, "unable to download: " + path);
+			}
+			f.onData(response.getEntity().getContent());
 		} catch (IOException e) {
 			throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to process", e);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			return;
+		} finally {
+			if (response != null) {
+				EntityUtils.consumeQuietly(response.getEntity());
+			}
 		}
-		if (response.statusCode() != 200) {
-			throw new OssException(response.statusCode(), "unable to download: " + path);
-		}
-
-		f.onData(response.body());
 	}
 
 	private synchronized void refreshToken() throws OssException {
@@ -246,39 +281,30 @@ public class SelectelOssClient implements OssClient {
 			LOG.info("re-newing auth token");
 		}
 		long start = System.currentTimeMillis();
-		Builder result = HttpRequest.newBuilder().uri(URI.create(authUrl));
-		result.timeout(Duration.ofMinutes(1L));
-		result.header("User-Agent", USER_AGENT);
-		result.header("X-Auth-User", user);
-		result.header("X-Auth-Key", key);
-		result.GET();
-
+		HttpGet method = new HttpGet(authUrl);
+		method.setHeader("X-Auth-User", user);
+		method.setHeader("X-Auth-Key", key);
+		org.apache.http.HttpResponse response = null;
 		try {
-			HttpResponse<String> response = httpclient.send(result.build(), BodyHandlers.ofString());
-			if (response.statusCode() != 204) {
-				throw new OssException(response.statusCode(), "unable to authenticate");
+			response = httpclient.execute(method);
+			int statusCode = response.getStatusLine().getStatusCode();
+			if (statusCode != 204) {
+				throw new OssException(statusCode, "unable to authenticate");
 			}
-			authToken = response.headers().firstValue("X-Auth-Token").get();
-			baseUrl = response.headers().firstValue("X-Storage-Url").get();
+			authToken = response.getFirstHeader("X-Auth-Token").getValue();
+			baseUrl = response.getFirstHeader("X-Storage-Url").getValue();
 
 			LOG.info("baseurl: {}", baseUrl);
 			// convert seconds to millis
-			validUntil = (start + Long.valueOf(response.headers().firstValue("X-Expire-Auth-Token").get()) * 1000) - timeout;
+			validUntil = (start + Long.valueOf(response.getFirstHeader("X-Expire-Auth-Token").getValue()) * 1000) - timeout;
 			LOG.info("the token will expire at: {}", new Date(validUntil));
 		} catch (IOException e) {
 			throw new OssException(OssException.INTERNAL_SERVER_ERROR, "unable to read auth response", e);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new OssException(OssException.INTERNAL_SERVER_ERROR, "interrupted");
+		} finally {
+			if (response != null) {
+				EntityUtils.consumeQuietly(response.getEntity());
+			}
 		}
-	}
-
-	private synchronized HttpRequest.Builder createRequest(String path) {
-		Builder result = HttpRequest.newBuilder().uri(URI.create(baseUrl + "/" + containerName + path));
-		result.timeout(Duration.ofMillis(timeout));
-		result.header("User-Agent", USER_AGENT);
-		result.header("X-Auth-Token", authToken);
-		return result;
 	}
 
 	private synchronized void resetAuthToken() {
@@ -314,4 +340,16 @@ public class SelectelOssClient implements OssClient {
 		this.authUrl = authUrl;
 	}
 
+	private static String readVersion() {
+		try (InputStream is = SelectelOssClient.class.getClassLoader().getResourceAsStream("META-INF/maven/ru.r2cloud/ossClient/pom.properties")) {
+			if (is != null) {
+				Properties p = new Properties();
+				p.load(is);
+				return p.getProperty("version", null);
+			}
+			return null;
+		} catch (IOException e) {
+			return null;
+		}
+	}
 }
