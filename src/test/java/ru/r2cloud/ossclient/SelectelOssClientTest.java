@@ -50,6 +50,14 @@ public class SelectelOssClientTest {
 		server.createContext(BASEDATAPATH + "/" + CONTAINER_NAME + path, new DeleteHandler(fileClient, path, 201));
 		client.delete(path);
 	}
+	
+	@Test(expected = OssException.class)
+	public void testDeleteFailure() throws Exception {
+		String path = "/testFile";
+		fileClient.submit(createTempFile(UUID.randomUUID().toString()), path);
+		server.createContext(BASEDATAPATH + "/" + CONTAINER_NAME + path, new DeleteHandler(fileClient, path, 503));
+		client.delete(path);
+	}
 
 	@Test(expected = OssException.class)
 	public void testInvalidAuth() throws Exception {
