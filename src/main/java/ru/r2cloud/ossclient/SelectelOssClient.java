@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.http.HttpResponse;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
@@ -55,7 +56,7 @@ public class SelectelOssClient implements OssClient {
 		}
 		userAgent = "ossClient/" + version + " (dernasherbrezon)";
 	}
-	
+
 	public void start() {
 		RequestConfig config = RequestConfig.custom().setConnectTimeout(timeout).setConnectionRequestTimeout(timeout).build();
 		httpclient = HttpClientBuilder.create().setUserAgent(userAgent).setDefaultRequestConfig(config).build();
@@ -72,9 +73,7 @@ public class SelectelOssClient implements OssClient {
 			org.apache.http.HttpResponse response = null;
 			try {
 				response = httpclient.execute(method);
-				if (LOG.isDebugEnabled()) {
-					LOG.debug("response: {}", EntityUtils.toString(response.getEntity()));
-				}
+				logSafely(response);
 				int statusCode = response.getStatusLine().getStatusCode();
 				if (statusCode == 201 || statusCode == 204) {
 					// log only when retry happened
@@ -108,9 +107,7 @@ public class SelectelOssClient implements OssClient {
 			org.apache.http.HttpResponse response = null;
 			try {
 				response = httpclient.execute(method);
-				if (LOG.isDebugEnabled()) {
-					LOG.debug("response: {}", EntityUtils.toString(response.getEntity()));
-				}
+				logSafely(response);
 				int statusCode = response.getStatusLine().getStatusCode();
 				if (statusCode == 201) {
 					// log only when retry happened
@@ -338,6 +335,16 @@ public class SelectelOssClient implements OssClient {
 
 	public void setAuthUrl(String authUrl) {
 		this.authUrl = authUrl;
+	}
+
+	private static void logSafely(HttpResponse response) throws org.apache.http.ParseException, IOException {
+		if (LOG.isDebugEnabled()) {
+			if (response.getEntity() != null) {
+				LOG.debug("response: {}", EntityUtils.toString(response.getEntity()));
+			} else {
+				LOG.debug("response is empty");
+			}
+		}
 	}
 
 	private static String readVersion() {
