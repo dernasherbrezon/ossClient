@@ -1,4 +1,4 @@
-## About [![Build Status](https://travis-ci.org/dernasherbrezon/ossClient.svg?branch=master)](https://travis-ci.org/dernasherbrezon/ossClient) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ru.r2cloud%3AossClient&metric=alert_status)](https://sonarcloud.io/dashboard?id=ru.r2cloud%3AossClient)
+## About [![Build Status](https://travis-ci.com/dernasherbrezon/ossClient.svg?branch=master)](https://travis-ci.com/dernasherbrezon/ossClient) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ru.r2cloud%3AossClient&metric=alert_status)](https://sonarcloud.io/dashboard?id=ru.r2cloud%3AossClient)
  
 Single interface for objects storage services. Currently supported:
 
